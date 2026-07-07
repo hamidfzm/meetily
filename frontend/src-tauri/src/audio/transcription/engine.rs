@@ -135,6 +135,19 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
                 }
             }
         }
+        "qwen3Asr" => {
+            info!("🔍 Validating Qwen3-ASR server...");
+            match super::qwen_provider::Qwen3AsrProvider::health_check(None).await {
+                Ok(()) => {
+                    info!("✅ Qwen3-ASR server is reachable");
+                    Ok(())
+                }
+                Err(e) => {
+                    warn!("❌ Qwen3-ASR validation failed: {}", e);
+                    Err(e)
+                }
+            }
+        }
         other => {
             warn!("❌ Unsupported transcription provider for local recording: {}", other);
             Err(format!(
@@ -211,6 +224,11 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
                     Err("Parakeet engine not initialized. This should not happen after validation.".to_string())
                 }
             }
+        }
+        "qwen3Asr" => {
+            info!("🎙️ Initializing Qwen3-ASR transcription provider");
+            let provider = super::qwen_provider::Qwen3AsrProvider::new(None);
+            Ok(TranscriptionEngine::Provider(std::sync::Arc::new(provider)))
         }
         "localWhisper" | _ => {
             info!("🎤 Initializing Whisper transcription engine");
