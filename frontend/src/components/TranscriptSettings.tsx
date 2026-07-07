@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Eye, EyeOff, Lock, Unlock } from 'lucide-react';
+import { toast } from 'sonner';
 import { ModelManager } from './WhisperModelManager';
 import { ParakeetModelManager } from './ParakeetModelManager';
 
@@ -113,7 +114,24 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                 onValueChange={(value) => {
                                     const provider = value as TranscriptModelProps['provider'];
                                     setUiProvider(provider);
-                                    if (provider !== 'localWhisper' && provider !== 'parakeet' && provider !== 'qwen3Asr') {
+                                    if (provider === 'qwen3Asr') {
+                                        // Single-model local provider: persist immediately so the
+                                        // recording engine (which reads the DB) picks it up
+                                        const cfg = { ...transcriptModelConfig, provider, model: 'qwen3-asr-1.7b' };
+                                        setTranscriptModelConfig(cfg);
+                                        invoke('api_save_transcript_config', {
+                                            provider: cfg.provider,
+                                            model: cfg.model,
+                                            apiKey: null,
+                                        })
+                                            .then(() => toast.success('Transcription set to Qwen3-ASR', {
+                                                description: 'Make sure the Qwen3-ASR server is running before recording.'
+                                            }))
+                                            .catch(err => {
+                                                console.error('Failed to save transcript config:', err);
+                                                toast.error('Failed to save transcript settings');
+                                            });
+                                    } else if (provider !== 'localWhisper' && provider !== 'parakeet') {
                                         fetchApiKey(provider);
                                     }
                                 }}
