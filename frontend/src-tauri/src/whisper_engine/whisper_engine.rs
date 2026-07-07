@@ -13,6 +13,10 @@ use tokio::io::AsyncWriteExt;
 use crate::config::WHISPER_MODEL_CATALOG;
 use super::acceleration::{whisper_context_acceleration_for, WhisperCompiledBackend};
 
+// Code-switching bias for Persian: a mixed-script sample as initial_prompt keeps
+// embedded English words in Latin script instead of transliterating them into Persian.
+const PERSIAN_CODE_SWITCH_PROMPT: &str = "جلسه را شروع می‌کنیم. باید این feature را در sprint بعدی deploy کنیم و درباره performance و budget صحبت کنیم.";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ModelStatus {
     Available,
@@ -539,6 +543,9 @@ impl WhisperEngine {
         };
         params.set_language(language_code);
         params.set_translate(should_translate);
+        if language_code == Some("fa") {
+            params.set_initial_prompt(PERSIAN_CODE_SWITCH_PROMPT);
+        }
 
         // CRITICAL: Disable timestamp tokens to prevent whisper.cpp chunking heuristics
         // The "single timestamp ending - skip entire chunk" optimization incorrectly discards
@@ -656,6 +663,9 @@ impl WhisperEngine {
         };
         params.set_language(language_code);
         params.set_translate(should_translate);
+        if language_code == Some("fa") {
+            params.set_initial_prompt(PERSIAN_CODE_SWITCH_PROMPT);
+        }
 
         // CRITICAL: Disable timestamp tokens to prevent whisper.cpp chunking heuristics
         // The "single timestamp ending - skip entire chunk" optimization incorrectly discards
