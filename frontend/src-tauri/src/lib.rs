@@ -68,6 +68,11 @@ static RECORDING_FLAG: AtomicBool = AtomicBool::new(false);
 static LANGUAGE_PREFERENCE: std::sync::LazyLock<StdMutex<String>> =
     std::sync::LazyLock::new(|| StdMutex::new("auto-translate".to_string()));
 
+// Global transcription context prompt, passed to whisper as initial_prompt.
+// Biases decoding toward the user's vocabulary; key for mixed-language (code-switched) speech.
+static TRANSCRIPTION_PROMPT: std::sync::LazyLock<StdMutex<String>> =
+    std::sync::LazyLock::new(|| StdMutex::new(String::new()));
+
 #[derive(Debug, Deserialize)]
 struct RecordingArgs {
     save_path: String,
@@ -387,6 +392,25 @@ pub fn get_language_preference_internal() -> Option<String> {
     LANGUAGE_PREFERENCE.lock().ok().map(|lang| lang.clone())
 }
 
+#[tauri::command]
+async fn set_transcription_prompt(prompt: String) -> Result<(), String> {
+    let mut stored = TRANSCRIPTION_PROMPT
+        .lock()
+        .map_err(|e| format!("Failed to set transcription prompt: {}", e))?;
+    log_info!("Setting transcription prompt ({} chars)", prompt.len());
+    *stored = prompt;
+    Ok(())
+}
+
+// Internal helper to get the transcription prompt; None when unset or blank
+pub fn get_transcription_prompt_internal() -> Option<String> {
+    TRANSCRIPTION_PROMPT
+        .lock()
+        .ok()
+        .map(|p| p.clone())
+        .filter(|p| !p.trim().is_empty())
+}
+
 pub fn run() {
     log::set_max_level(log::LevelFilter::Info);
 
@@ -692,6 +716,7 @@ pub fn run() {
             audio::recording_preferences::get_audio_backend_info,
             // Language preference commands
             set_language_preference,
+            set_transcription_prompt,
             // Notification system commands
             notifications::commands::get_notification_settings,
             notifications::commands::set_notification_settings,

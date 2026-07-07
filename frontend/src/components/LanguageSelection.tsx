@@ -128,7 +128,8 @@ export function LanguageSelection({
   provider = 'localWhisper'
 }: LanguageSelectionProps) {
   const [saving, setSaving] = useState(false);
-  const { setSelectedLanguage } = useConfig();
+  const { setSelectedLanguage, transcriptionPrompt, setTranscriptionPrompt } = useConfig();
+  const [promptDraft, setPromptDraft] = useState(transcriptionPrompt);
 
   // Parakeet only supports auto-detection (doesn't support manual language selection)
   const isParakeet = provider === 'parakeet';
@@ -228,6 +229,30 @@ export function LanguageSelection({
             </p>
           )}
         </div>
+
+        {/* Context prompt for whisper (helps mixed-language speech and custom vocabulary) */}
+        {!isParakeet && (
+          <div className="pt-2 space-y-1">
+            <h4 className="text-sm font-medium text-gray-900">Context Hint (optional)</h4>
+            <textarea
+              value={promptDraft}
+              onChange={(e) => setPromptDraft(e.target.value)}
+              onBlur={() => {
+                if (promptDraft !== transcriptionPrompt) {
+                  setTranscriptionPrompt(promptDraft);
+                  toast.success('Context hint saved');
+                }
+              }}
+              disabled={disabled}
+              rows={3}
+              placeholder="Sample text in your speaking style, e.g. mixed Persian/English with your technical terms. Whisper mimics its vocabulary and script."
+              className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+            />
+            <p className="text-xs text-gray-600">
+              Helps with mixed-language speech: write a sentence the way you actually talk (including English words inside Persian) and transcripts will follow that style.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

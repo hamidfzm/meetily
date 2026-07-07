@@ -251,7 +251,33 @@ impl WhisperEngine {
             
             models.push(model_info);
         }
-        
+
+        // Custom models: any ggml-*.bin dropped in the models folder that is not in
+        // the catalog (e.g. a converted fine-tune) is listed and loadable as-is.
+        let catalog_files: HashSet<&str> = WHISPER_MODEL_CATALOG.iter().map(|&(_, f, ..)| f).collect();
+        if let Ok(entries) = std::fs::read_dir(models_dir) {
+            for entry in entries.flatten() {
+                let file_name = entry.file_name().to_string_lossy().into_owned();
+                if !file_name.starts_with("ggml-") || !file_name.ends_with(".bin") || catalog_files.contains(file_name.as_str()) {
+                    continue;
+                }
+                let size_mb = entry.metadata().map(|m| m.len() / (1024 * 1024)).unwrap_or(0);
+                if size_mb < 1 {
+                    continue;
+                }
+                let name = file_name.trim_start_matches("ggml-").trim_end_matches(".bin").to_string();
+                models.push(ModelInfo {
+                    name,
+                    path: entry.path(),
+                    size_mb: size_mb as u32,
+                    accuracy: "Unknown".to_string(),
+                    speed: "Unknown".to_string(),
+                    status: ModelStatus::Available,
+                    description: "Custom model from models folder".to_string(),
+                });
+            }
+        }
+
         // Update internal cache
         let mut available_models = self.available_models.write().await;
         available_models.clear();
@@ -543,7 +569,11 @@ impl WhisperEngine {
         };
         params.set_language(language_code);
         params.set_translate(should_translate);
-        if language_code == Some("fa") {
+        // User-provided context prompt wins; fall back to the built-in
+        // code-switching bias for Persian.
+        if let Some(prompt) = crate::get_transcription_prompt_internal() {
+            params.set_initial_prompt(&prompt);
+        } else if language_code == Some("fa") {
             params.set_initial_prompt(PERSIAN_CODE_SWITCH_PROMPT);
         }
 
@@ -663,7 +693,11 @@ impl WhisperEngine {
         };
         params.set_language(language_code);
         params.set_translate(should_translate);
-        if language_code == Some("fa") {
+        // User-provided context prompt wins; fall back to the built-in
+        // code-switching bias for Persian.
+        if let Some(prompt) = crate::get_transcription_prompt_internal() {
+            params.set_initial_prompt(&prompt);
+        } else if language_code == Some("fa") {
             params.set_initial_prompt(PERSIAN_CODE_SWITCH_PROMPT);
         }
 

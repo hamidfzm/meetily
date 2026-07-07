@@ -59,6 +59,10 @@ interface ConfigContextType {
   selectedLanguage: string;
   setSelectedLanguage: (lang: string) => void;
 
+  // Transcription context prompt (whisper initial_prompt, helps mixed-language speech)
+  transcriptionPrompt: string;
+  setTranscriptionPrompt: (prompt: string) => void;
+
   // UI preferences
   showConfidenceIndicator: boolean;
   toggleConfidenceIndicator: (checked: boolean) => void;
@@ -145,6 +149,14 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     return 'auto';
   });
 
+  // Transcription context prompt state
+  const [transcriptionPrompt, setTranscriptionPromptState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('transcriptionPrompt') || '';
+    }
+    return '';
+  });
+
   // UI preferences state
   const [showConfidenceIndicator, setShowConfidenceIndicator] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -222,7 +234,16 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           console.error('[ConfigContext] Failed to sync language preference to Rust on startup:', err);
         });
     }
-  }, []); 
+  }, []);
+
+  // Sync transcription prompt to Rust on mount
+  useEffect(() => {
+    if (transcriptionPrompt) {
+      invoke('set_transcription_prompt', { prompt: transcriptionPrompt }).catch(err => {
+        console.error('[ConfigContext] Failed to sync transcription prompt to Rust on startup:', err);
+      });
+    }
+  }, []);
 
   // Load model configuration on mount
   useEffect(() => {
@@ -482,6 +503,17 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  // Wrapper for setTranscriptionPrompt that persists to localStorage and syncs to Rust
+  const handleSetTranscriptionPrompt = useCallback((prompt: string) => {
+    setTranscriptionPromptState(prompt);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('transcriptionPrompt', prompt);
+    }
+    invoke('set_transcription_prompt', { prompt }).catch(err =>
+      console.error('Failed to sync transcription prompt to Rust:', err)
+    );
+  }, []);
+
   const value: ConfigContextType = useMemo(() => ({
     modelConfig,
     setModelConfig,
@@ -495,6 +527,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     setSelectedDevices,
     selectedLanguage,
     setSelectedLanguage: handleSetSelectedLanguage,
+    transcriptionPrompt,
+    setTranscriptionPrompt: handleSetTranscriptionPrompt,
     showConfidenceIndicator,
     toggleConfidenceIndicator,
     betaFeatures,
@@ -517,6 +551,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     selectedDevices,
     selectedLanguage,
     handleSetSelectedLanguage,
+    transcriptionPrompt,
+    handleSetTranscriptionPrompt,
     showConfidenceIndicator,
     toggleConfidenceIndicator,
     betaFeatures,
