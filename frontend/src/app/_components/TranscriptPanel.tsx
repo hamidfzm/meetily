@@ -70,7 +70,7 @@ export function TranscriptPanel({
                     </span>
                   </Button>
                 )}
-                {transcriptModelConfig.provider === "localWhisper" &&
+                {(transcriptModelConfig.provider === "localWhisper" || transcriptModelConfig.provider === "qwen3Asr") &&
                   <Button
                     variant="outline"
                     size="sm"
