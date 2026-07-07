@@ -21,21 +21,29 @@ parser.add_argument("--port", type=int, default=8585)
 parser.add_argument("--model", default="Qwen/Qwen3-ASR-1.7B")
 args = parser.parse_args()
 
-print(f"Loading {args.model}...")
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+if device == "cpu":
+    print("=" * 60)
+    print("WARNING: CUDA not available, running on CPU (very slow).")
+    print("Start this server with the venv python that has CUDA torch,")
+    print("e.g. C:\\mt\\qwen3-test\\venv\\Scripts\\python.exe")
+    print("=" * 60)
+
+print(f"Loading {args.model} on {device}...")
 model = Qwen3ASRModel.from_pretrained(
     args.model,
     dtype=torch.bfloat16,
-    device_map="cuda:0" if torch.cuda.is_available() else "cpu",
+    device_map=device,
     max_new_tokens=512,
 )
-print("Model loaded.")
+print(f"Model loaded on {device}.")
 
 app = FastAPI()
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model": args.model}
+    return {"status": "ok", "model": args.model, "device": device}
 
 
 @app.post("/v1/audio/transcriptions")
